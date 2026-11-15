@@ -25,11 +25,20 @@ public:
     int height() const { return h_; }
     bool inBounds(int x, int y) const { return x >= 0 && y >= 0 && x < w_ && y < h_; }
     void clear(Color c);
-    void setPixel(int x, int y, Color c);  // ignores out-of-bounds writes
-    Color getPixel(int x, int y) const;    // returns black if out-of-bounds
+    void setPixel(int x, int y, Color c) {  // ignores out-of-bounds writes
+        if (inBounds(x, y)) data_[(size_t)y * w_ + x] = c;
+    }
+    Color getPixel(int x, int y) const {  // returns black if out-of-bounds
+        return inBounds(x, y) ? data_[(size_t)y * w_ + x] : Color{0, 0, 0};
+    }
+    // Direct access to one scanline (no bounds check) for block operations.
+    Color* row(int y) { return data_.data() + (size_t)y * w_; }
+    const Color* row(int y) const { return data_.data() + (size_t)y * w_; }
     void hline(int x0, int x1, int y, Color c);  // horizontal span (inclusive)
     bool savePPM(const std::string& path) const;
     bool saveBMP(const std::string& path) const;
+    bool savePNG(const std::string& path) const;  // implemented in png.cpp
+    const Color* data() const { return data_.data(); }
 
 private:
     int w_, h_;

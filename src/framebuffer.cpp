@@ -25,17 +25,12 @@ Framebuffer::Framebuffer(int w, int h, Color bg) : w_(w), h_(h), data_((size_t)w
 
 void Framebuffer::clear(Color c) { std::fill(data_.begin(), data_.end(), c); }
 
-void Framebuffer::setPixel(int x, int y, Color c) {
-    if (inBounds(x, y)) data_[(size_t)y * w_ + x] = c;
-}
-
-Color Framebuffer::getPixel(int x, int y) const {
-    return inBounds(x, y) ? data_[(size_t)y * w_ + x] : Color{0, 0, 0};
-}
-
 void Framebuffer::hline(int x0, int x1, int y, Color c) {
     if (x0 > x1) std::swap(x0, x1);
-    for (int x = x0; x <= x1; ++x) setPixel(x, y, c);
+    if (y < 0 || y >= h_) return;
+    x0 = std::max(x0, 0);
+    x1 = std::min(x1, w_ - 1);
+    if (x0 <= x1) std::fill(row(y) + x0, row(y) + x1 + 1, c);
 }
 
 bool Framebuffer::savePPM(const std::string& path) const {

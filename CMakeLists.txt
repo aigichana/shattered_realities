@@ -17,6 +17,11 @@ target_include_directories(shattered_realities PRIVATE ${CMAKE_SOURCE_DIR}/inclu
 # Lets the program write images to <project>/output regardless of working directory
 target_compile_definitions(shattered_realities PRIVATE PROJECT_ROOT="${CMAKE_SOURCE_DIR}")
 
+# The live viewer only needs the window/GDI/compositor libraries that ship with Windows
+if (WIN32)
+    target_link_libraries(shattered_realities PRIVATE user32 gdi32 dwmapi)
+endif()
+
 if (MSVC)
     target_compile_options(shattered_realities PRIVATE /W3)
 else()

@@ -1,7 +1,9 @@
-// main.cpp - renders every checkpoint image into <project>/output
+// main.cpp - entry point.
+//   shattered_realities                 open the live viewer (Windows); elsewhere export images
+//   shattered_realities --export [dir]  write every technique page and scene stage as PNG
+//   shattered_realities <dir>           same as --export <dir>
+#include "app.h"
 #include "demos.h"
-#include "framebuffer.h"
-#include "scene.h"
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -11,26 +13,29 @@
 #endif
 
 int main(int argc, char** argv) {
-    std::string out = argc > 1 ? argv[1] : std::string(PROJECT_ROOT) + "/output";
-    std::filesystem::create_directories(out);
+    std::string out = std::string(PROJECT_ROOT) + "/output";
+    bool exportMode = !liveViewerAvailable();
 
-    std::printf("Rendering technique demos...\n");
-    demoLines(out);
-    demoCirclesEllipses(out);
-    demoPolygonsFill(out);
-    demoClipping(out);
-    demoCurves(out);
-
-    std::printf("Rendering Shattered Realities scene stages...\n");
-    const double stages[] = {0.0, 0.35, 0.7, 1.0};
-    const char* names[] = {"06_scene_stage1_healthy", "07_scene_stage2_unease",
-                           "08_scene_stage3_distorting", "09_scene_stage4_shattered"};
-    for (int i = 0; i < 4; ++i) {
-        Framebuffer fb(640, 480);
-        renderScene(fb, stages[i]);
-        fb.saveBMP(out + "/" + names[i] + ".bmp");
-        std::printf("  wrote %s/%s.bmp (distortion %.2f)\n", out.c_str(), names[i], stages[i]);
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a == "--help" || a == "-h") {
+            std::printf("usage: %s [--export [output-dir]]\n", argv[0]);
+            return 0;
+        } else if (a == "--export") {
+            exportMode = true;
+        } else if (!a.empty() && a[0] != '-') {
+            out = a;
+            exportMode = true;
+        } else {
+            std::printf("unknown option %s (try --help)\n", a.c_str());
+            return 1;
+        }
     }
-    std::printf("Done.\n");
-    return 0;
+
+    std::filesystem::create_directories(out);
+    if (exportMode) {
+        exportAll(out);
+        return 0;
+    }
+    return runLiveViewer(out);
 }
