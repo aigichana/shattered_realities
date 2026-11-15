@@ -148,9 +148,10 @@ framebuffer to the screen.
   and draw it on a full-screen quad. This keeps every algorithm we wrote and changes only how the
   frame reaches the screen. Then move the scene objects to vertex buffers and shaders one at a time,
   using the current CPU renderer as a reference image to check each one against.
-* **Interaction (final project).** Let the viewer influence the story instead of only watching it,
-  for example by clicking objects in the room to calm reality and lower `distortion`. The scene
-  already reacts to that single value, so input only has to change it.
+* **Bring back what the proposal deferred.** OpenGL makes the parts of the original proposal that
+  need 3D possible again: a 3D room and character, Gouraud and Phong shading with real light
+  sources, Bezier camera paths and hierarchical rigging. As proposed, the project stays a
+  non-interactive animation; the keys only control the presentation.
 * **Keep what works.** The `--export` mode and the built-in algorithm checks (DDA vs Bresenham,
   Cohen-Sutherland vs Liang-Barsky) should stay as regression tests through the OpenGL port.
 * **Possible removals.** The BMP/PPM writers are no longer used now that PNG export exists.
