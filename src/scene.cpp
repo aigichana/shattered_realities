@@ -95,7 +95,14 @@ void drawConstruction(Framebuffer& fb, const Construction& k) {
     // Labels are drawn normally (XOR text is hard to read over mid-grey pixels).
     if (!k.clips.empty()) drawTextShadow(fb, I(k.clips[0].xmin) - 10, I(k.clips[0].ymin) - 22, "CLIP WINDOW", C);
     if (k.bezier.size() > 1) drawTextShadow(fb, I(k.bezier[1][1].x) + 12, I(k.bezier[1][1].y) - 4, "BEZIER CONTROL POINTS", Y);
-    if (!k.splines.empty()) drawTextShadow(fb, I(k.splines[0].back().x) + 8, I(k.splines[0].back().y) - 4, "CATMULL-ROM POINTS", C);
+    if (!k.splines.empty()) {  // label the top of the tallest wisp, where it is least crowded
+        const Point* top = &k.splines[0].back();
+        for (const auto& s : k.splines)
+            if (s.back().y < top->y) top = &s.back();
+        int lx = I(top->x) + 8;
+        if (lx + textWidth("CATMULL-ROM POINTS") > fb.width() - 4) lx = I(top->x) - 8 - textWidth("CATMULL-ROM POINTS");
+        drawTextShadow(fb, lx, I(top->y) - 4, "CATMULL-ROM POINTS", C);
+    }
     if (!k.pivots.empty()) drawTextShadow(fb, I(k.pivots[0].x) + 12, I(k.pivots[0].y) + 6, "ROTATION PIVOT", W);
 }
 
@@ -275,6 +282,28 @@ void renderScene(Framebuffer& fb, double t, const SceneOptions& opt) {
         }
     }
 
+    // ================= SMOKE: Catmull-Rom wisps, alpha-blended from their own layer =================
+    // The wisps are drawn into a colour-keyed layer, then composited with the same
+    // mask + alpha blit as the sprites, so the haze is translucent. They sit behind the
+    // character, rise from the floor and have different heights.
+    const int wisps = (int)std::lround(8 * easeInOut((t - 0.15) / 0.85));
+    if (wisps > 0) {
+        Framebuffer haze(fb.width(), fb.height(), SPRITE_KEY);
+        for (int i = 0; i < wisps; ++i) {
+            const double bx = 70 + hash01(100, i) * 500, base = 452 - 24 * hash01(104, i);
+            const int n = 4 + (int)(3 * hash01(103, i));  // 4 to 6 points
+            std::vector<Point> pts;
+            for (int j = 0; j < n; ++j)
+                pts.push_back({bx + 26 * std::sin(j * 1.2 + i + time * 0.9) + noise(101, i * 8 + j) * 10,
+                               base - j * 55.0});
+            const int g = 215 - I(45 * hash01(102, i));
+            drawCatmullRom(haze, pts, {(uint8_t)g, (uint8_t)g, (uint8_t)(g + 10)}, false, 3, 16);
+            k.splines.push_back(pts);
+        }
+        const Mask m = makeColorKeyMask(haze, SPRITE_KEY);
+        blitAlpha(fb, 0, 0, haze, {0, 0, haze.width(), haze.height()}, 0.3 + 0.3 * t, &m);
+    }
+
     // ================= CHARACTER =================
     const double s = easeInOut(t);
     const double shake = std::sin(time * 23) * t * t * 2.0;  // trembling at high distortion
@@ -335,18 +364,7 @@ void renderScene(Framebuffer& fb, double t, const SceneOptions& opt) {
         k.bezier.push_back(m);
     }
 
-    // ================= SMOKE / HAZE: Catmull-Rom wisps and particles =================
-    int wisps = (int)std::lround(8 * easeInOut((t - 0.15) / 0.85));
-    for (int i = 0; i < wisps; ++i) {
-        double bx = 70 + hash01(100, i) * 500;
-        std::vector<Point> pts;
-        for (int j = 0; j < 6; ++j)
-            pts.push_back({bx + 28 * std::sin(j * 1.2 + i + time * 0.9) + noise(101, i * 8 + j) * 12,
-                           440 - j * 62.0});
-        int g = 150 - I(50 * hash01(102, i));
-        drawCatmullRom(fb, pts, {(uint8_t)g, (uint8_t)g, (uint8_t)(g + 8)}, false, 2, 16);
-        k.splines.push_back(pts);
-    }
+    // ================= DUST PARTICLES (position-based animation) =================
     int particles = (int)std::lround(60 * easeInOut((t - 0.1) / 0.9));
     for (int i = 0; i < particles; ++i) {
         // particles rise at their own speed: y = y0 - v * time, wrapped to the screen

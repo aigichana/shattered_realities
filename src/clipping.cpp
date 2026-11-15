@@ -10,7 +10,9 @@ static int outcode(double x, double y, const Rect& w) {
     int code = INSIDE;
     if (x < w.xmin) code |= LEFT;
     else if (x > w.xmax) code |= RIGHT;
-    if (y < w.ymin) code |= BOTTOM;  // "bottom" = smaller y (screen space)
+    // Textbook names assume y points up. On screen y points down, so BOTTOM
+    // (smaller y) is the top edge of the window. The algorithm is unaffected.
+    if (y < w.ymin) code |= BOTTOM;
     else if (y > w.ymax) code |= TOP;
     return code;
 }

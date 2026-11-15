@@ -206,12 +206,23 @@ void renderCurves(Framebuffer& fb, double) {
     std::vector<Point> quartic = {{40, 440}, {80, 250}, {160, 440}, {240, 250}, {300, 420}};
     drawControlPolygon(fb, quartic, GREY, GREY);
     drawBezier(fb, quartic, GREEN, 3);
-    std::vector<Point> wave = {{350, 400}, {390, 290}, {440, 420}, {490, 280}, {540, 410}, {600, 300}};
+    // Catmull-Rom: the curve passes through every point (drawn on top so they stay visible)
+    auto knots = [&](const std::vector<Point>& pts, Color c) {
+        for (const Point& p : pts) {
+            fillCircleMidpoint(fb, I(p.x), I(p.y), 4, c);
+            drawCircleMidpoint(fb, I(p.x), I(p.y), 4, INK);
+        }
+    };
+    std::vector<Point> wave = {{350, 345}, {390, 268}, {440, 350}, {490, 262}, {540, 340}, {600, 272}};
     drawPolyline(fb, wave, {215, 215, 225}, 1);
-    for (const Point& p : wave) fillCircleMidpoint(fb, I(p.x), I(p.y), 4, ORANGE);
     drawCatmullRom(fb, wave, ORANGE, false, 3);
-    std::vector<Point> blob = {{440, 345}, {480, 330}, {510, 360}, {480, 395}, {430, 395}, {415, 365}};
+    knots(wave, ORANGE);
+    std::vector<Point> blob = {{440, 392}, {478, 380}, {512, 394}, {502, 428}, {458, 432}, {428, 414}};
+    drawPolyline(fb, blob, {215, 215, 225}, 1);
     drawCatmullRom(fb, blob, INK, true, 2);
+    knots(blob, {255, 255, 255});
+    drawText(fb, 528, 400, "CLOSED LOOP", GREY);
+    drawText(fb, 528, 412, "(WRAPS AROUND)", GREY);
 
     drawText(fb, 10, 6, "GREY = CONTROL POLYGON", GREY);
     drawTextCentered(fb, 165, 212, "CUBIC BEZIER", RED);
@@ -258,7 +269,7 @@ void renderTransforms(Framebuffer& fb, double time) {
     fb.clear(BG);
     char t[64];
     double tx = 50 * std::sin(time * 1.2), ty = 25 * std::sin(time * 2.4);
-    std::snprintf(t, sizeof t, "TRANSLATE T(%.0f, %.0f)", tx, ty);
+    std::snprintf(t, sizeof t, "TRANSLATE T(%.1f, %.1f)", tx, ty);
     transformPanel(fb, 0, 0, t, translate2D(tx, ty), BLUE);
 
     double sx = 1.3 + 0.4 * std::sin(time * 1.5), sy = 1.0 - 0.3 * std::sin(time * 1.5);
@@ -441,7 +452,7 @@ void renderAnimation(Framebuffer& fb, double time) {
         drawSprite(fb, sheet, (int)(tg * 9) % sheet.frames, I(x), 441 - sheet.frameH,
                    ghost == 0 ? 1.0 : 0.1 + 0.08 * (3 - ghost));
     }
-    drawText(fb, 10, 452, "SLIDE EXAMPLE: V = 20 PX/S, DT = 0.1 S  ->  THE BALL MOVES 2 PX THIS UPDATE", INK);
+    drawText(fb, 10, 452, "SAME SPEED AT ANY FPS: 60 FPS -> DT = 0.017 S, 1.17 PX/FRAME.  30 FPS -> 2.33 PX/FRAME", INK);
     drawText(fb, 10, 464, "DOUBLE BUFFERING: PRESS B IN THE LIVE VIEWER TO DRAW WITHOUT IT AND SEE FLICKER", GREY);
 }
 
