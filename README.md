@@ -113,7 +113,6 @@ include/, src/
   scene         the Shattered Realities room                    demos       technique pages + export
   app_win32     live viewer (window, input, present)            main        entry point
 output/         exported images (regenerate with --export)
-docs/           presentation guide
 ```
 
 ## Technologies

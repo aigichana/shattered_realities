@@ -2,3 +2,4 @@ build/
 cmake-build-*/
 .idea/
 output/screenshots/
+docs/
