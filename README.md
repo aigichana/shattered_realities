@@ -123,14 +123,13 @@ framebuffer to the screen.
 
 ## Contributors
 
-| Member | GitHub | Responsibilities |
+| Member | Role | Responsibilities |
 |---|---|---|
-| _name_ | [@aigichana](https://github.com/aigichana) | _e.g. integration, scene_ |
-| _name_ | _@handle_ | _e.g. lines and circles_ |
-| _name_ | _@handle_ | _e.g. polygons and clipping_ |
-| _name_ | _@handle_ | _e.g. curves and transformations_ |
-| _name_ | _@handle_ | _e.g. raster operations and sprites_ |
-| _name_ | _@handle_ | _e.g. animation, testing and documentation_ |
+| Ivan Gichana ([@aigichana](https://github.com/aigichana)) | Project Manager & Storyboard | Story and storyboard, the `distortion` keyframe timeline, project planning, documentation and presentation |
+| Issac Njuguna | Lead Modeler | DDA and Bresenham lines, midpoint circles and ellipses, scanline, boundary and flood fill ([lines.cpp](src/lines.cpp), [circles.cpp](src/circles.cpp), [polygon.cpp](src/polygon.cpp)) |
+| Nick Mugo | Lead Animator | 3x3 transformation matrices, Bezier curves, keyframes and easing, the walk cycle ([transform.cpp](src/transform.cpp), [curves.cpp](src/curves.cpp), [animation.cpp](src/animation.cpp), [sprites.cpp](src/sprites.cpp)) |
+| James Muthama | VFX & Lighting | Colour decay, vertex warp, clipping, Catmull-Rom smoke, alpha blending, glitch bands and vignette ([clipping.cpp](src/clipping.cpp), [raster.cpp](src/raster.cpp)) |
+| Precious Waweru | Graphics Integration & Testing | Scene assembly, live viewer, double buffering and VSync, construction overlay, PNG export, algorithm checks ([scene.cpp](src/scene.cpp), [app_win32.cpp](src/app_win32.cpp), [png.cpp](src/png.cpp)) |
 
 ## Checkpoint progress
 
