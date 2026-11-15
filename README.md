@@ -22,8 +22,8 @@ technique in the course reacts to it, so the graphics are what carry the story:
 * **scanline-filled** walls warp, and the door and mug **rotate about their pivots** (3x3 matrices);
 * the arms and mouth are **Bezier curves** whose control points tween from relaxed to clutching,
   and from smile to frown;
-* smoke is drawn with **Catmull-Rom splines**, and the colours are **interpolated** towards a
-  decayed palette;
+* smoke is drawn with **Catmull-Rom splines** on its own layer and alpha-blended in, and the
+  colours are **interpolated** towards a decayed palette;
 * a **masked, alpha-blended sprite** with a walk cycle appears and paces the back wall;
 * **raster post-processing** adds a vignette and horizontal "tearing" bands made with bit-blits.
 
@@ -74,7 +74,7 @@ On non-Windows systems the program always exports images (the viewer uses Win32)
 | 2D transformations with 3x3 homogeneous matrices | [transform.cpp](src/transform.cpp) | Door hinge and mug rotations, lamp swing, breathing torso (scale about a pivot), sprite limb posing, shear. |
 | Colour interpolation, desaturation, darkening | [framebuffer.cpp](src/framebuffer.cpp) | The healthy-to-decayed palette, the HUD distortion bar. |
 | Bit-blit with COPY / AND / OR / XOR, colour-key masks | [raster.cpp](src/raster.cpp) | Glitch bands (row blits), XOR construction overlay, composing pages, presenting frames. |
-| Alpha blending `src*a + dst*(1-a)` | [raster.cpp](src/raster.cpp) | Ghostly shadow figure, translucent HUD panels, fading messages. |
+| Alpha blending `src*a + dst*(1-a)` | [raster.cpp](src/raster.cpp) | Ghostly shadow figure, translucent smoke layer, HUD panels, fading messages. |
 | Sprites and sprite sheets | [sprites.cpp](src/sprites.cpp) | 8-frame walk cycle generated with our own primitives, drawn with a mask and alpha. |
 | Animation: delta time, keyframes, tweening, easing, frame timer | [animation.cpp](src/animation.cpp) | The story is a keyframe track of `distortion`. The walk cycle has its own 9 fps timer, and movement uses `x += v * dt`. |
 | Double buffering and VSync | [app_win32.cpp](src/app_win32.cpp) | Each frame is finished in a back buffer, then shown with one block transfer. `B` and `V` demonstrate both live. |
@@ -133,11 +133,38 @@ framebuffer to the screen.
 | _name_ | _@handle_ | _e.g. raster operations and sprites_ |
 | _name_ | _@handle_ | _e.g. animation, testing and documentation_ |
 
-## Development phases
+## Checkpoint progress
 
-| Phase | Status | Evidence |
-|---|---|---|
-| 1. Concept and design | done | The distortion-driven story above |
-| 2. Core graphics | done | Pages 1 to 5: lines, circles, polygons and fills, clipping, curves |
-| 3. Advanced graphics | in progress | Page 6 (transformations), pages 7 and 8 (raster ops, animation) |
-| 4. Integration and refinement | in progress | Live viewer, construction overlay, this README |
+| Checkpoint | Scope | Status | Evidence |
+|---|---|---|---|
+| CP1: Technical foundation | Core algorithms in pure C++, simple project components | Done | Pages 1 to 5, scene stages 1 to 4 |
+| CP2: Transformation and animation | Matrices, keyframes, tweening, sprites | Done (ahead of week 10) | Pages 6 to 8, live animated viewer |
+| CP3: OpenGL integration and prototype | Move the components to OpenGL | Planned | See *Future work* |
+| Final project | Interaction, polish, complete story | Planned | See *Future work* |
+
+## Future work and recommendations
+
+* **OpenGL (CP3), in two steps.** First, upload our finished framebuffer to an OpenGL texture
+  and draw it on a full-screen quad. This keeps every algorithm we wrote and changes only how the
+  frame reaches the screen. Then move the scene objects to vertex buffers and shaders one at a time,
+  using the current CPU renderer as a reference image to check each one against.
+* **Interaction (final project).** Let the viewer influence the story instead of only watching it,
+  for example by clicking objects in the room to calm reality and lower `distortion`. The scene
+  already reacts to that single value, so input only has to change it.
+* **Keep what works.** The `--export` mode and the built-in algorithm checks (DDA vs Bresenham,
+  Cohen-Sutherland vs Liang-Barsky) should stay as regression tests through the OpenGL port.
+* **Possible removals.** The BMP/PPM writers are no longer used now that PNG export exists.
+
+## Lessons learnt
+
+* **One control value keeps a complex scene manageable.** Driving everything from `distortion`
+  meant every new effect could be tested by scrubbing a single slider.
+* **Comparing two algorithms on the same input finds bugs quickly.** Running DDA against
+  Bresenham, and Cohen-Sutherland against Liang-Barsky, gave us a numerical check, not just a
+  picture to eyeball.
+* **Transformation order matters.** `T·R·S` and `R·T·S` give different results, and rotating
+  about a pivot needs `T(p)·R·T(-p)`. Page 6 shows both.
+* **Randomness must be repeatable in animation.** Using a hash of (object, vertex) instead of
+  `rand()` keeps the warped walls stable from frame to frame instead of shaking.
+* **Time-based animation beats frame-based.** Moving by `v·dt` keeps the story the same length
+  on a fast laptop and a slow projector.
