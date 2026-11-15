@@ -14,11 +14,17 @@ file(GLOB HEADERS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/include/*.h)
 add_executable(shattered_realities ${SOURCES} ${HEADERS})
 target_include_directories(shattered_realities PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
-# Lets the program write images to <project>/output wherever CLion runs it from
+# Lets the program write images to <project>/output regardless of working directory
 target_compile_definitions(shattered_realities PRIVATE PROJECT_ROOT="${CMAKE_SOURCE_DIR}")
 
 if (MSVC)
     target_compile_options(shattered_realities PRIVATE /W3)
 else()
     target_compile_options(shattered_realities PRIVATE -Wall -Wextra)
+endif()
+
+# Statically link the MinGW runtime so the .exe doesn't pick up a mismatched
+# libstdc++/libwinpthread DLL from elsewhere on PATH (e.g. PostgreSQL's bin).
+if (MINGW)
+    target_link_options(shattered_realities PRIVATE -static)
 endif()
