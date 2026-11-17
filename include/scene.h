@@ -3,12 +3,10 @@
 #include "framebuffer.h"
 
 struct SceneOptions {
-    double time = 0;            // seconds; drives the idle animation (lamp swing, smoke, walker...)
     bool construction = false;  // overlay control polygons, clip windows and pivots (XOR-blitted)
+    bool captions = true;       // story captions, title and end card
 };
 
-// distortion: 0.0 = clean, healthy reality ... 1.0 = fully shattered reality
-void renderScene(Framebuffer& fb, double distortion, const SceneOptions& opt = {});
-
-// Human-readable stage name for a distortion value.
-const char* stageName(double distortion);
+// Draws the story at one moment (seconds, see story.h). The picture is a pure
+// function of the time, so any moment can be paused, scrubbed or exported.
+void renderStory(Framebuffer& fb, double storyTime, const SceneOptions& opt = {});

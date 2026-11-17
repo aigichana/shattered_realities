@@ -22,6 +22,7 @@
 #include "font.h"
 #include "raster.h"
 #include "scene.h"
+#include "story.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -46,11 +47,11 @@ struct Viewer {
 
     // ---- state
     int page = 0;                  // 0 = scene, 1..N = technique pages
-    bool paused = false, doubleBuffer = true, vsync = true, construction = false, help = true;
-    double story = 0, animTime = 0;  // seconds along the story timeline / idle animation clock
-    double manual = -1;              // >= 0 while the user scrubs the distortion by hand
+    bool paused = false, doubleBuffer = true, vsync = true, construction = false;
+    int hud = 0;                     // 0 = help + timeline, 1 = timeline only, 2 = clean picture
+    double story = 0, animTime = 0;  // seconds along the story timeline / clock of the technique pages
+    bool scrubbing = false;          // true while LEFT / RIGHT is held
     double distortion = 0;
-    KeyframeTrack timeline;
     FrameClock clock;
     double dt = 0;
     std::string toast;
@@ -102,14 +103,16 @@ void drawSceneHud(Framebuffer& c) {
     char buf[64];
     std::snprintf(buf, sizeof buf, "%.2f", V->distortion);
     drawText(c, 232, y0 + 6, buf, {240, 240, 245});
-    drawText(c, 10, y0 + 18, V->manual >= 0 ? "MANUAL (PRESS R FOR AUTOPLAY)" : "AUTOPLAY STORY", {130, 130, 150});
+    drawText(c, 10, y0 + 18, V->scrubbing ? "SEEKING" : V->paused ? "PAUSED" : "AUTOPLAY STORY", {130, 130, 150});
 
     // timeline with keyframe markers and playhead
-    const double dur = V->timeline.duration();
+    const double dur = storyDuration();
     const int tx0 = 300, tx1 = CANVAS_W - 14, ty = y0 + 10;
     drawText(c, tx0, y0 + 18, "KEYFRAMES", {130, 130, 150});
     fillRect(c, {tx0, ty, tx1 - tx0, 2}, {90, 86, 110});
-    for (const Keyframe& k : V->timeline.keys()) {
+    for (int a = 1; a < actCount(); ++a)  // act boundaries
+        fillRect(c, {tx0 + (int)std::lround((tx1 - tx0) * actStart(a) / dur), ty - 5, 1, 12}, {130, 126, 150});
+    for (const Keyframe& k : distortionTrack().keys()) {
         int x = tx0 + (int)std::lround((tx1 - tx0) * k.time / dur);
         Color col = lerpColor({60, 190, 200}, {210, 40, 60}, k.value);
         fillRect(c, {x - 3, ty - 2, 7, 6}, col);  // marker coloured by its value
@@ -117,12 +120,13 @@ void drawSceneHud(Framebuffer& c) {
     int px = tx0 + (int)std::lround((tx1 - tx0) * V->story / dur);
     fillRect(c, {px - 1, ty - 6, 3, 14}, {255, 255, 255});
 
-    if (V->help) {
+    if (V->hud == 0) {
         const char* lines[] = {
-            "SPACE   PAUSE / PLAY",   "< >     SCRUB DISTORTION", "R       RESTART STORY",
-            "C       CONSTRUCTION LINES", "B       DOUBLE BUFFERING", "V       VSYNC",
-            "1-8     TECHNIQUE PAGES", "TAB     NEXT PAGE",        "F11     FULLSCREEN",
-            "P       SCREENSHOT",     "H       HIDE HELP",        "ESC     QUIT"};
+            "SPACE   PAUSE / PLAY",   "< >     SEEK THROUGH STORY", "[ ]     PREVIOUS / NEXT ACT",
+            "R       RESTART STORY",  "C       CONSTRUCTION LINES", "B       DOUBLE BUFFERING",
+            "V       VSYNC",          "1-8     TECHNIQUE PAGES",    "TAB     NEXT PAGE",
+            "F11     FULLSCREEN",     "P       SCREENSHOT",         "H       HIDE HELP / HUD",
+            "ESC     QUIT"};
         const int n = sizeof lines / sizeof lines[0], w = 190, h = 34 + n * 10;
         const int x0 = CANVAS_W - w - 8, yy = 8;
         fillRectAlpha(c, {x0, yy, w, h}, {10, 8, 16}, 0.7);
@@ -135,7 +139,7 @@ void drawToast(Framebuffer& c) {
     if (V->toastTimer <= 0) return;
     double a = std::min(1.0, V->toastTimer / 0.5);  // fade out during the last half second
     int w = textWidth(V->toast, 2) + 24;
-    IRect r{(CANVAS_W - w) / 2, CANVAS_H - 76, w, 30};
+    IRect r{(CANVAS_W - w) / 2, 356, w, 30};
     fillRectAlpha(c, r, {10, 8, 16}, 0.8 * a);
     Framebuffer txt(w, 30, {0, 0, 0});
     drawText(txt, 12, 8, V->toast, {255, 255, 255}, 2);
@@ -151,14 +155,14 @@ void renderFrame() {
 
     if (V->page == 0) {
         SceneOptions opt;
-        opt.time = V->animTime;
         opt.construction = V->construction;
-        renderScene(V->canvas, V->distortion, opt);
-        drawSceneHud(V->canvas);
-        bool recovering = V->manual < 0 && V->timeline.sample(V->story + 0.1) < V->timeline.sample(V->story) - 1e-4;
-        std::string title = std::string("STAGE: ") + (recovering ? "RECOVERING" : stageName(V->distortion));
-        std::snprintf(sub, sizeof sub, "STORY %4.1f / %.0f S%s%s%s", V->story, V->timeline.duration(),
-                      V->paused ? "   PAUSED" : "", V->doubleBuffer ? "" : "   SINGLE BUFFER",
+        renderStory(V->canvas, V->story, opt);
+        if (V->hud < 2) drawSceneHud(V->canvas);
+        const int act = sampleStory(V->story).act;
+        char title[96];
+        std::snprintf(title, sizeof title, "ACT %d OF %d: %s", act + 1, actCount(), actTitle(act));
+        std::snprintf(sub, sizeof sub, "STORY %4.1f / %.0f S   DISTORTION %.2f%s%s%s", V->story, storyDuration(),
+                      V->distortion, V->paused ? "   PAUSED" : "", V->doubleBuffer ? "" : "   SINGLE BUFFER",
                       V->vsync ? "" : "   NO VSYNC");
         drawToast(V->canvas);
         drawCaptionBar(V->back, title, sub, right);
@@ -180,19 +184,19 @@ void renderFrame() {
 void update(double dt) {
     V->dt = dt;
     if (V->toastTimer > 0) V->toastTimer -= dt;
-    if (!V->paused) {
-        V->animTime += dt;
-        if (V->manual < 0) V->story = std::fmod(V->story + dt, V->timeline.duration());
+    // hold LEFT / RIGHT to seek through the story (rate is per second, so frame-rate independent)
+    int dir = 0;
+    if (GetForegroundWindow() == V->hwnd && V->page == 0)
+        dir = ((GetAsyncKeyState(VK_RIGHT) & 0x8000) ? 1 : 0) - ((GetAsyncKeyState(VK_LEFT) & 0x8000) ? 1 : 0);
+    V->scrubbing = dir != 0;
+    if (V->scrubbing) {
+        V->story = std::clamp(V->story + dir * 8 * dt, 0.0, storyDuration() - 0.05);
+    } else if (!V->paused && V->page == 0) {
+        // the story only runs while it is on screen, so it waits during the technique pages
+        V->story = std::fmod(V->story + dt, storyDuration());
     }
-    // hold LEFT / RIGHT to scrub the distortion smoothly (rate is per second, so frame-rate independent)
-    if (GetForegroundWindow() == V->hwnd && V->page == 0) {
-        int dir = ((GetAsyncKeyState(VK_RIGHT) & 0x8000) ? 1 : 0) - ((GetAsyncKeyState(VK_LEFT) & 0x8000) ? 1 : 0);
-        if (dir != 0) {
-            if (V->manual < 0) V->manual = V->distortion;
-            V->manual = clamp01(V->manual + dir * 0.45 * dt);
-        }
-    }
-    V->distortion = V->manual >= 0 ? V->manual : V->timeline.sample(V->story);
+    if (!V->paused) V->animTime += dt;
+    V->distortion = distortionTrack().sample(V->story);
 }
 
 void toggleFullscreen() {
@@ -242,10 +246,20 @@ void onKey(WPARAM key) {
             break;
         case 'R':
             V->story = 0;
-            V->manual = -1;
             V->paused = false;
-            showToast("STORY RESTARTED");
+            V->page = 0;
             break;
+        case VK_OEM_4:   // [
+        case VK_PRIOR:   // Page Up
+        case VK_OEM_6:   // ]
+        case VK_NEXT: {  // Page Down: jump to the previous / next act
+            int act = sampleStory(V->story).act;
+            if (key == VK_OEM_6 || key == VK_NEXT) act = (act + 1) % actCount();
+            else if (V->story - actStart(act) < 1.5) act = (act + actCount() - 1) % actCount();
+            V->story = actStart(act);
+            V->page = 0;
+            break;
+        }
         case 'C':
             V->construction = !V->construction;
             showToast(V->construction ? "CONSTRUCTION LINES ON" : "CONSTRUCTION LINES OFF");
@@ -258,7 +272,7 @@ void onKey(WPARAM key) {
             V->vsync = !V->vsync;
             showToast(V->vsync ? "VSYNC ON" : "VSYNC OFF: UNCAPPED FPS");
             break;
-        case 'H': V->help = !V->help; break;
+        case 'H': V->hud = (V->hud + 1) % 3; break;
         case 'P': screenshot(); break;
         case VK_F11:
         case 'F': toggleFullscreen(); break;
@@ -309,9 +323,6 @@ int runLiveViewer(const std::string& outDir) {
     viewer.bmi.bmiHeader.biPlanes = 1;
     viewer.bmi.bmiHeader.biBitCount = 32;
     viewer.bmi.bmiHeader.biCompression = BI_RGB;
-
-    // The story: keyframes of the distortion value; tweening with ease-in-out fills the gaps.
-    viewer.timeline.add(0, 0).add(3, 0).add(9, 0.35).add(15, 0.7).add(21, 1.0).add(26, 1.0).add(31, 0).add(34, 0);
 
     std::printf("Preparing technique pages...\n");
     for (const DemoPage& p : demoPages()) {

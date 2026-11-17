@@ -9,6 +9,7 @@
 #include "raster.h"
 #include "scene.h"
 #include "sprites.h"
+#include "story.h"
 #include "transform.h"
 #include <cmath>
 #include <cstdio>
@@ -518,26 +519,28 @@ void exportAll(const std::string& dir) {
     std::printf("  check: Cohen-Sutherland vs Liang-Barsky disagreements on 10 test lines: %d\n",
                 compareClippers());
 
-    std::printf("Rendering Shattered Realities scene stages...\n");
-    struct Stage { double t; const char* file; };
-    const Stage stages[] = {{0.0, "09_scene_stage1_healthy"},
-                            {0.35, "10_scene_stage2_unease"},
-                            {0.7, "11_scene_stage3_distorting"},
-                            {1.0, "12_scene_stage4_shattered"}};
-    for (int i = 0; i < 4; ++i) {
+    std::printf("Rendering Shattered Realities story stills...\n");
+    struct Still { double time; const char* file; };
+    const Still stills[] = {{9.0, "09_story_act1_ordinary_day"}, {18.4, "10_story_act2_just_once"},
+                            {30.0, "11_story_act3_the_high"},    {50.5, "12_story_act4_one_more"},
+                            {66.0, "13_story_act5_shattered"},   {77.0, "14_story_act6_rock_bottom"},
+                            {90.2, "15_story_act7_a_hand_reaches_out"}};
+    for (const Still& st : stills) {
         Framebuffer canvas(CANVAS_W, CANVAS_H);
-        renderScene(canvas, stages[i].t);
+        renderStory(canvas, st.time);
+        const StoryState state = sampleStory(st.time);
         char title[64], sub[96];
-        std::snprintf(title, sizeof title, "STAGE %d: %s", i + 1, stageName(stages[i].t));
-        std::snprintf(sub, sizeof sub, "DISTORTION = %.2f  -  ONE VALUE DRIVES EVERY ALGORITHM", stages[i].t);
-        save(composePage(canvas, title, sub, "THE SCENE"), stages[i].file);
+        std::snprintf(title, sizeof title, "ACT %d: %s", state.act + 1, actTitle(state.act));
+        std::snprintf(sub, sizeof sub, "STORY TIME %.1f S  -  DISTORTION = %.2f", st.time, state.distortion);
+        save(composePage(canvas, title, sub, "THE STORY"), st.file);
     }
     Framebuffer canvas(CANVAS_W, CANVAS_H);
     SceneOptions opt;
     opt.construction = true;
-    renderScene(canvas, 0.7, opt);
+    opt.captions = false;
+    renderStory(canvas, 60.5, opt);
     save(composePage(canvas, "CONSTRUCTION LINES",
-                     "BEZIER CONTROL POINTS, SPLINE POINTS, PIVOTS, CLIP WINDOW (XOR OVERLAY)", "THE SCENE"),
-         "13_scene_construction_lines");
+                     "BEZIER CONTROL POINTS, SPLINE POINTS, PIVOTS, CLIP WINDOW (XOR OVERLAY)", "THE STORY"),
+         "16_scene_construction_lines");
     std::printf("Done.\n");
 }

@@ -89,8 +89,9 @@ Framebuffer makeOrSprite(const Framebuffer& src, const Mask& m) {
 }
 
 Color blendAlpha(Color s, Color d, double a) {
-    a = std::max(0.0, std::min(1.0, a));
-    auto ch = [a](uint8_t sv, uint8_t dv) { return (uint8_t)std::lround(sv * a + dv * (1.0 - a)); };
+    // fixed-point version of src * a + dst * (1 - a): alpha becomes an integer in [0, 256]
+    const int w = (int)(std::max(0.0, std::min(1.0, a)) * 256 + 0.5);
+    auto ch = [w](int sv, int dv) { return (uint8_t)((sv * w + dv * (256 - w) + 128) >> 8); };
     return {ch(s.r, d.r), ch(s.g, d.g), ch(s.b, d.b)};
 }
 
@@ -113,6 +114,7 @@ void fillRect(Framebuffer& fb, IRect r, Color c) {
 }
 
 void fillRectAlpha(Framebuffer& fb, IRect r, Color c, double alpha) {
+    if (alpha <= 0) return;  // fully transparent: nothing to do
     int x0 = std::max(r.x, 0), x1 = std::min(r.x + r.w, fb.width());
     int y0 = std::max(r.y, 0), y1 = std::min(r.y + r.h, fb.height());
     for (int y = y0; y < y1; ++y) {
